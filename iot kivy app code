@@ -1,0 +1,192 @@
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.uix.textinput import TextInput
+from kivy.clock import Clock
+from kivy.uix.progressbar import ProgressBar
+import requests
+from bs4 import BeautifulSoup
+import webbrowser
+
+
+class SensorApp(App):
+    def build(self):
+        # First page layout
+        self.main_layout = BoxLayout(orientation="vertical", padding=10, spacing=10)
+
+        # Heading and Developers information
+        self.header_label = Label(
+            text="Parrot Health Monitoring System\nDeveloped by Team S7 Alfa",
+            font_size="28sp",
+            bold=True,
+            color=(1, 1, 1, 1),  # White text
+            halign="center",
+            size_hint=(1, 0.2)
+        )
+        self.main_layout.add_widget(self.header_label)
+
+        # Developers info
+        developers_label = Label(
+            text="Developers:\n1) Zohaib Sumbal (Leader)\n2) Rashid Ali\n3) Luqman Ghani\n4) Ubaid ur Rehman",
+            font_size="20sp",
+            color=(0.9, 0.9, 0.9, 1),  # Light gray text
+            halign="center",
+            size_hint=(1, 0.4)
+        )
+        self.main_layout.add_widget(developers_label)
+
+        # Continue button to go to health monitoring page
+        continue_button = Button(
+            text="Continue to Health Monitoring",
+            size_hint=(1, 0.2),
+            background_color=(0.5, 0.8, 0.3, 1),  # Green background color
+            font_size="18sp",
+            color=(1, 1, 1, 1),  # White text
+            bold=True
+        )
+        continue_button.bind(on_press=self.go_to_next_page)
+        self.main_layout.add_widget(continue_button)
+
+        # Footer: All rights reserved
+        footer_label = Label(
+            text="All rights reserved by Zohaib Sumbal",
+            font_size="16sp",
+            color=(0.9, 0.9, 0.9, 1),
+            halign="center",
+            size_hint=(1, 0.1)
+        )
+        self.main_layout.add_widget(footer_label)
+
+        return self.main_layout
+
+    def go_to_next_page(self, instance):
+        # Clear the current page and switch to health monitoring layout
+        self.main_layout.clear_widgets()
+
+        # Create new layout for health monitoring page
+        self.layout = BoxLayout(orientation="vertical", padding=10, spacing=10)
+
+        # ESP8266 and ESP32 IP addresses
+        self.esp8266_ip = "http://192.168.145.125"
+        self.esp32_ip = "http://192.168.145.31"
+        
+        # Default limits
+        self.temp_limit_low = 19.0
+        self.temp_limit_high = 28.0
+        self.humidity_limit_low = 40.0
+        self.humidity_limit_high = 70.0
+
+        # Status labels
+        self.connectivity_label = Label(text="ESP8266 Status: Disconnected", color=(1, 0, 0, 1), font_size="18sp")
+        self.layout.add_widget(self.connectivity_label)
+
+        self.temp_label = Label(text="Temperature: N/A °C", font_size="16sp")
+        self.layout.add_widget(self.temp_label)
+
+        self.temp_bar = ProgressBar(max=50, value=0)
+        self.layout.add_widget(self.temp_bar)
+
+        self.humidity_label = Label(text="Humidity: N/A %", font_size="16sp")
+        self.layout.add_widget(self.humidity_label)
+
+        self.humidity_bar = ProgressBar(max=100, value=0)
+        self.layout.add_widget(self.humidity_bar)
+
+        self.motion_label = Label(text="Motion Detected: N/A", font_size="16sp")
+        self.layout.add_widget(self.motion_label)
+
+        # Start live stream button
+        self.live_stream_button = Button(text="Start Live Stream (ESP32)", background_color=(0.5, 0.5, 0.5, 1), font_size="16sp")
+        self.live_stream_button.bind(on_press=self.start_live_stream)
+        self.layout.add_widget(self.live_stream_button)
+
+        # Input fields for limits
+        self.temp_low_input = TextInput(hint_text="Set Temp Low Limit")
+        self.layout.add_widget(self.temp_low_input)
+
+        self.temp_high_input = TextInput(hint_text="Set Temp High Limit")
+        self.layout.add_widget(self.temp_high_input)
+
+        self.humidity_low_input = TextInput(hint_text="Set Humidity Low Limit")
+        self.layout.add_widget(self.humidity_low_input)
+
+        self.humidity_high_input = TextInput(hint_text="Set Humidity High Limit")
+        self.layout.add_widget(self.humidity_high_input)
+
+        # Apply limits button
+        self.apply_button = Button(text="Apply Limits", background_color=(0.5, 0.5, 0.5, 1), font_size="16sp")
+        self.apply_button.bind(on_press=self.apply_limits)
+        self.layout.add_widget(self.apply_button)
+
+        # Alert label
+        self.alert_label = Label(text="", font_size="16sp", color=(1, 0, 0, 1))
+        self.layout.add_widget(self.alert_label)
+
+        # Schedule periodic updates
+        Clock.schedule_interval(self.update_esp8266_data, 5)
+
+        # Add the health monitoring layout to the screen
+        self.main_layout.add_widget(self.layout)
+
+    def update_esp8266_data(self, dt):
+        try:
+            response = requests.get(self.esp8266_ip, timeout=5)
+            response.raise_for_status()
+            webpage_content = response.text
+
+            soup = BeautifulSoup(webpage_content, "html.parser")
+            paragraphs = soup.find_all("p")
+            if len(paragraphs) >= 3:
+                temperature = float(paragraphs[0].text.split(":")[1].strip().split(" ")[0])
+                humidity = float(paragraphs[1].text.split(":")[1].strip().split(" ")[0])
+                motion = paragraphs[2].text.split(":")[1].strip()
+
+                self.temp_label.text = f"Temperature: {temperature} °C"
+                self.humidity_label.text = f"Humidity: {humidity} %"
+                self.motion_label.text = f"Motion Detected: {motion}"
+
+                self.connectivity_label.text = "ESP8266 Status: Connected"
+                self.connectivity_label.color = (0, 1, 0, 1)
+
+                self.temp_bar.value = temperature
+                self.humidity_bar.value = humidity
+
+                if temperature < self.temp_limit_low or temperature > self.temp_limit_high:
+                    self.alert_label.text = f"ALERT: Temperature {temperature}°C out of range!"
+                elif humidity < self.humidity_limit_low or humidity > self.humidity_limit_high:
+                    self.alert_label.text = f"ALERT: Humidity {humidity}% out of range!"
+                else:
+                    self.alert_label.text = ""
+            else:
+                raise ValueError("Insufficient data from sensor")
+        except Exception as e:
+            self.connectivity_label.text = "ESP8266 Status: Disconnected"
+            self.connectivity_label.color = (1, 0, 0, 1)
+            self.alert_label.text = f"Error parsing data: {e}"
+
+    def start_live_stream(self, instance):
+        try:
+            webbrowser.open(self.esp32_ip)
+            self.alert_label.text = "Opening live stream in browser..."
+        except Exception as e:
+            self.alert_label.text = f"Error starting live stream: {e}"
+
+    def apply_limits(self, instance):
+        try:
+            if self.temp_low_input.text:
+                self.temp_limit_low = float(self.temp_low_input.text)
+            if self.temp_high_input.text:
+                self.temp_limit_high = float(self.temp_high_input.text)
+            if self.humidity_low_input.text:
+                self.humidity_limit_low = float(self.humidity_low_input.text)
+            if self.humidity_high_input.text:
+                self.humidity_limit_high = float(self.humidity_high_input.text)
+
+            self.alert_label.text = "Limits updated successfully!"
+        except ValueError:
+            self.alert_label.text = "Error: Invalid limit values entered."
+
+
+if __name__ == "__main__":
+    SensorApp().run()
