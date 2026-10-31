@@ -1,0 +1,23 @@
+# Python Backend and Mobile App Dependencies
+
+# Web Framework
+flask>=2.3.0
+requests>=2.31.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Data Visualization
+matplotlib>=3.7.0
+
+# Mobile App Framework
+kivy>=2.2.0
+kivymd>=1.1.1
+
+# Database
+# sqlite3 is built into Python
+
+# Optional: Advanced features
+# python-dotenv>=1.0.0  # For environment variables
+# paho-mqtt>=1.6.1      # For MQTT protocol (alternative to HTTP)
